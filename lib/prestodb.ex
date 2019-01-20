@@ -1,4 +1,3 @@
 defmodule Prestodb do
-
-  defdelegate execute(statement), to: Prestodb.Statement
+  defdelegate execute(statement, opts \\ []), to: Prestodb.Statement
 end
