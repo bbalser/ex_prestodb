@@ -72,18 +72,8 @@ defmodule Prestodb.Statement do
     }
   end
 
-  def get_all_results(%Result{next_uri: next_uri} = result) when not is_nil(next_uri) do
-    next_result = advance(result)
-
-    %Result{
-      next_result
-      | columns: Map.get(next_result, :columns, result.columns),
-        data: result.data ++ next_result.data
-    }
-    |> get_all_results()
+  def prefetch(result) do
+    Enum.map(result, fn x -> x end)
   end
 
-  def get_all_results(%Result{} = result) do
-    result
-  end
 end
