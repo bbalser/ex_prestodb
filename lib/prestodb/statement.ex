@@ -43,15 +43,15 @@ defmodule Prestodb.Statement do
     end
   end
 
-  plug(Tesla.Middleware.BaseUrl, Application.get_env(:prestodb, :base_url))
-  plug(Tesla.Middleware.Headers, [{"X-Presto-User", "bbalser"}])
-  plug(Tesla.Middleware.JSON)
+  plug Tesla.Middleware.BaseUrl, Application.get_env(:prestodb, :base_url)
+  plug Tesla.Middleware.Headers, [{"X-Presto-User", "bbalser"}]
+  plug Prestodb.Middleware.Retry, delay: 100, max_retries: 5
+  plug Tesla.Middleware.DecodeJson
 
   def execute(statement, opts \\ []) do
     {by_names, header_opts} = Keyword.get_and_update(opts, :by_names, fn _ -> :pop end)
 
-    headers =
-      Enum.map(header_opts, fn {k, v} -> {"X-Presto-#{String.capitalize(to_string(k))}", v} end)
+    headers = Enum.map(header_opts, &create_header/1)
 
     post("/v1/statement", statement, headers: headers)
     |> transform(%Result{by_names: by_names || false})
@@ -60,6 +60,16 @@ defmodule Prestodb.Statement do
   def advance(%Result{next_uri: next_uri} = result) do
     get(next_uri)
     |> transform(result)
+  end
+
+  defp create_header({name, value}) when is_atom(name) do
+    presto_name =
+      name
+      |> to_string()
+      |> String.split("_")
+      |> Enum.map_join("-", &String.capitalize(&1))
+
+    {"X-Presto-#{presto_name}", value}
   end
 
   defp transform({:ok, %Tesla.Env{status: 200, body: body}}, %Result{by_names: by_names}) do
@@ -75,5 +85,4 @@ defmodule Prestodb.Statement do
   def prefetch(result) do
     Enum.map(result, fn x -> x end)
   end
-
 end
